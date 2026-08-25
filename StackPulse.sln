@@ -1,0 +1,27 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "backend", "backend", "{CA08C2C4-DDBB-4430-8022-54BE6D0EA06F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StackPulse.Api", "backend\StackPulse.Api\StackPulse.Api.csproj", "{B9042062-C1E9-44E7-BA90-3806EA7A7AB1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B9042062-C1E9-44E7-BA90-3806EA7A7AB1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9042062-C1E9-44E7-BA90-3806EA7A7AB1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9042062-C1E9-44E7-BA90-3806EA7A7AB1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9042062-C1E9-44E7-BA90-3806EA7A7AB1}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B9042062-C1E9-44E7-BA90-3806EA7A7AB1} = {CA08C2C4-DDBB-4430-8022-54BE6D0EA06F}
+	EndGlobalSection
+EndGlobal
