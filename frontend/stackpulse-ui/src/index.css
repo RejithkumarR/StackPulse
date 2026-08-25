@@ -3,19 +3,19 @@
   line-height: 1.5;
   font-weight: 400;
   color: #e5eefb;
-  background: #081121;
+  background: #000000;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --bg: #081121;
-  --bg-soft: #0e1a2d;
-  --panel: rgba(12, 20, 35, 0.9);
-  --panel-strong: #121d2d;
-  --sidebar: #0b1423;
-  --line: rgba(148, 163, 184, 0.18);
-  --primary: #6ee7b7;
-  --primary-strong: #3dd4a3;
+  --bg: #000000;
+  --bg-soft: #050505;
+  --panel: rgba(2, 6, 12, 0.85);
+  --panel-strong: #071018;
+  --sidebar: #050608;
+  --line: rgba(125, 211, 252, 0.06);
+  --primary: #7dd3fc; /* sky blue primary */
+  --primary-strong: #4fbfe8;
   --accent: #7dd3fc;
   --muted: #8fa9c7;
   --danger: #f87171;
