@@ -24,6 +24,22 @@ public class AuthController : ControllerBase
         return Ok(new { success = true, message = "Login successful", data = response });
     }
 
+    [HttpPost("signup")]
+    [AllowAnonymous]
+    public async Task<ActionResult<LoginResponseDto>> Signup([FromBody] SignupRequestDto request, CancellationToken cancellationToken)
+    {
+        var response = await _authService.SignupAsync(request, cancellationToken);
+        return Ok(new { success = true, message = "Signup successful", data = response });
+    }
+
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request, CancellationToken cancellationToken)
+    {
+        await _authService.ForgotPasswordAsync(request, cancellationToken);
+        return Ok(new { success = true, message = "If the email exists, a password reset request has been recorded." });
+    }
+
     [HttpPost("refresh")]
     [AllowAnonymous]
     public async Task<ActionResult<LoginResponseDto>> Refresh([FromBody] RefreshTokenRequestDto request, CancellationToken cancellationToken)

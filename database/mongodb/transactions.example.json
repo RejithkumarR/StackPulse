@@ -1,0 +1,20 @@
+{
+  "machine_inventory": {
+    "masterComputerId": "MySQL computer_masters.id",
+    "hostname": "BUILD-SERVER-01",
+    "collectedAt": { "$date": "2026-08-26T00:00:00Z" },
+    "osVersion": "Windows Server 2022",
+    "drives": [],
+    "installedSoftwares": [],
+    "windowsServices": []
+  },
+  "integration_sync": {
+    "masterIntegrationAccessId": "MySQL integration_accesses.id",
+    "provider": "Jira",
+    "startedAt": { "$date": "2026-08-26T00:00:00Z" },
+    "completedAt": null,
+    "status": "Running",
+    "itemsProcessed": 0,
+    "payload": {}
+  }
+}

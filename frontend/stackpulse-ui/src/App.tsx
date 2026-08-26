@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import './App.css';
 
 import LoginPage from './pages/auth/LoginPage';
@@ -15,19 +15,10 @@ import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
 import type { User } from './types/auth';
 
-const defaultUser: User = {
-  id: '1',
-  username: 'admin',
-  email: 'admin@stackpulse.io',
-  firstName: 'Avery',
-  lastName: 'Stone',
-  isActive: true,
-};
-
 function App() {
   const [session, setSession] = useState<{ user: User | null; token: string | null }>({
-    user: localStorage.getItem('stackpulse_user') ? JSON.parse(localStorage.getItem('stackpulse_user') ?? 'null') : defaultUser,
-    token: localStorage.getItem('stackpulse_access_token') ?? 'demo-token',
+    user: localStorage.getItem('stackpulse_user') ? JSON.parse(localStorage.getItem('stackpulse_user') ?? 'null') : null,
+    token: localStorage.getItem('stackpulse_access_token'),
   });
 
   const isAuthenticated = !!session.token && !!session.user;
@@ -45,11 +36,6 @@ function App() {
     localStorage.removeItem('stackpulse_refresh_token');
   };
 
-  useMemo(
-    () => ({ user: session.user, token: session.token, isAuthenticated, login: handleLogin, logout: handleLogout }),
-    [session.user, session.token, isAuthenticated],
-  );
-
   const ProtectedRoute = ({ children }: { children: ReactNode }) =>
     isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 
@@ -64,7 +50,7 @@ function App() {
           <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><ProfilePage user={session.user ?? defaultUser} /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute>{session.user ? <ProfilePage user={session.user} /> : <Navigate to="/login" replace />}</ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
         </Route>
 

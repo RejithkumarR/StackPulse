@@ -1,29 +1,125 @@
 import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
+import {
+  getMasterConfiguration,
+  saveComputerMaster,
+  saveIntegrationAccess,
+  type ComputerMaster,
+  type IntegrationAccess,
+  type MasterConfiguration,
+} from '../../services/masterConfigurationService';
 import { getLatestInventory } from '../../services/systemInventoryService';
+
+const emptyComputer: ComputerMaster = { hostname: '', assetTag: '', owner: '', environment: '', isActive: true };
+const emptyIntegration: IntegrationAccess = {
+  provider: 'Jira',
+  displayName: '',
+  baseUrl: '',
+  projectKey: '',
+  username: '',
+  secretReference: '',
+  isActive: true,
+};
 
 export default function SettingsPage() {
   const [inventory, setInventory] = useState<any | null>(null);
+  const [config, setConfig] = useState<MasterConfiguration>({ computers: [], integrations: [] });
+  const [computer, setComputer] = useState<ComputerMaster>(emptyComputer);
+  const [integration, setIntegration] = useState<IntegrationAccess>(emptyIntegration);
+  const [status, setStatus] = useState('');
 
   useEffect(() => {
     getLatestInventory().then(setInventory).catch(() => setInventory(null));
+    getMasterConfiguration().then(setConfig).catch(() => setConfig({ computers: [], integrations: [] }));
   }, []);
+
+  const submitComputer = async (event: FormEvent) => {
+    event.preventDefault();
+    const saved = await saveComputerMaster(computer);
+    setConfig((current) => ({
+      ...current,
+      computers: [saved, ...current.computers.filter((item) => item.id !== saved.id)],
+    }));
+    setComputer(emptyComputer);
+    setStatus('Computer master saved');
+  };
+
+  const submitIntegration = async (event: FormEvent) => {
+    event.preventDefault();
+    const saved = await saveIntegrationAccess(integration);
+    setConfig((current) => ({
+      ...current,
+      integrations: [saved, ...current.integrations.filter((item) => item.id !== saved.id)],
+    }));
+    setIntegration(emptyIntegration);
+    setStatus('Integration access saved');
+  };
 
   return (
     <div className="content-panel">
       <div className="panel-card">
-        <h3>Workspace settings</h3>
+        <div className="section-header">
+          <h3>Master configuration</h3>
+          {status ? <span className="status good">{status}</span> : null}
+        </div>
         <div className="settings-list">
           <div>
-            <span>Theme</span>
-            <strong>Black / Sky Blue</strong>
+            <span>Authentication database</span>
+            <strong>MySQL</strong>
           </div>
           <div>
-            <span>Notifications</span>
-            <strong>Enabled</strong>
+            <span>Audit and application logs</span>
+            <strong>MongoDB</strong>
           </div>
           <div>
-            <span>Security</span>
-            <strong>MFA enforced</strong>
+            <span>Connection source</span>
+            <strong>AWS Secrets Manager</strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="two-column-layout">
+        <div className="panel-card">
+          <h3>Computer master</h3>
+          <form className="config-form" onSubmit={submitComputer}>
+            <input required placeholder="Hostname" value={computer.hostname} onChange={(e) => setComputer({ ...computer, hostname: e.target.value })} />
+            <input placeholder="Asset tag" value={computer.assetTag} onChange={(e) => setComputer({ ...computer, assetTag: e.target.value })} />
+            <input placeholder="Owner" value={computer.owner} onChange={(e) => setComputer({ ...computer, owner: e.target.value })} />
+            <input placeholder="Environment" value={computer.environment} onChange={(e) => setComputer({ ...computer, environment: e.target.value })} />
+            <button className="primary-button small" type="submit">Save computer</button>
+          </form>
+          <div className="compact-list">
+            {config.computers.map((item) => (
+              <button type="button" key={item.id ?? item.hostname} onClick={() => setComputer(item)}>
+                <strong>{item.hostname}</strong>
+                <span>{item.owner || 'Unassigned'} / {item.environment || 'No environment'}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="panel-card">
+          <h3>Integration access</h3>
+          <form className="config-form" onSubmit={submitIntegration}>
+            <select value={integration.provider} onChange={(e) => setIntegration({ ...integration, provider: e.target.value })}>
+              <option>Jira</option>
+              <option>Confluence</option>
+              <option>Bitbucket</option>
+            </select>
+            <input required placeholder="Display name" value={integration.displayName} onChange={(e) => setIntegration({ ...integration, displayName: e.target.value })} />
+            <input required placeholder="Base URL" value={integration.baseUrl} onChange={(e) => setIntegration({ ...integration, baseUrl: e.target.value })} />
+            <input placeholder="Project / space / workspace key" value={integration.projectKey} onChange={(e) => setIntegration({ ...integration, projectKey: e.target.value })} />
+            <input placeholder="Username" value={integration.username} onChange={(e) => setIntegration({ ...integration, username: e.target.value })} />
+            <input placeholder="AWS secret reference" value={integration.secretReference} onChange={(e) => setIntegration({ ...integration, secretReference: e.target.value })} />
+            <button className="primary-button small" type="submit">Save access</button>
+          </form>
+          <div className="compact-list">
+            {config.integrations.map((item) => (
+              <button type="button" key={item.id ?? `${item.provider}-${item.displayName}`} onClick={() => setIntegration(item)}>
+                <strong>{item.provider}: {item.displayName}</strong>
+                <span>{item.projectKey || item.baseUrl}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
