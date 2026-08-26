@@ -1,0 +1,15 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": ["masterUserId", "userName", "action", "createdAt"],
+    "properties": {
+      "masterUserId": { "bsonType": "string", "description": "MySQL users.id" },
+      "userName": { "bsonType": "string" },
+      "action": { "bsonType": "string" },
+      "details": { "bsonType": ["string", "null"] },
+      "entityName": { "bsonType": ["string", "null"] },
+      "masterEntityId": { "bsonType": ["string", "null"], "description": "Related MySQL master id when applicable" },
+      "createdAt": { "bsonType": "date" }
+    }
+  }
+}

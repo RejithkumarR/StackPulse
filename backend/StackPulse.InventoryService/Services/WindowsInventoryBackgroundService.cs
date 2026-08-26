@@ -1,6 +1,11 @@
 using System.Management;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
+using System.Diagnostics;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Bson;
 using StackPulse.Api.Data;
 using StackPulse.Api.Models;
 using Microsoft.Win32;
@@ -30,42 +35,53 @@ public class WindowsInventoryBackgroundService : BackgroundService
             {
                 using var scope = _services.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<StackPulseDbContext>();
+                var mongo = scope.ServiceProvider.GetRequiredService<MongoStackPulseContext>();
+                var hostname = Environment.MachineName;
+                var masterComputerId = await db.ComputerMasters
+                    .Where(x => x.Hostname == hostname)
+                    .Select(x => (Guid?)x.Id)
+                    .FirstOrDefaultAsync(stoppingToken);
 
                 var inventory = new MachineInventory
                 {
-                    Hostname = Environment.MachineName,
-                    OSVersion = Environment.OSVersion.ToString(),
+                    Hostname = hostname,
+                    OSVersion = RuntimeInformation.OSDescription,
                     CollectedAt = DateTime.UtcNow,
-                    WindowsServices = GetWindowsServices(),
+                    WindowsServices = await GetServicesAsync(stoppingToken),
                     InstalledSoftwares = GetInstalledSoftware(),
                     Drives = GetDrives()
                 };
 
-                db.MachineInventories.Add(inventory);
-                await db.SaveChangesAsync(stoppingToken);
-                _logger.LogInformation("Saved machine inventory with {Id}", inventory.Id);
+                if (mongo.IsConfigured)
+                {
+                    await mongo.MachineInventory.InsertOneAsync(new BsonDocument
+                    {
+                        ["masterComputerId"] = masterComputerId.HasValue ? masterComputerId.Value.ToString() : BsonNull.Value,
+                        ["hostname"] = inventory.Hostname,
+                        ["osVersion"] = inventory.OSVersion,
+                        ["collectedAt"] = inventory.CollectedAt,
+                        ["windowsServices"] = new BsonArray(inventory.WindowsServices?.Select(x => x.ToBsonDocument()) ?? Enumerable.Empty<BsonDocument>()),
+                        ["installedSoftwares"] = new BsonArray(inventory.InstalledSoftwares?.Select(x => x.ToBsonDocument()) ?? Enumerable.Empty<BsonDocument>()),
+                        ["drives"] = new BsonArray(inventory.Drives?.Select(x => x.ToBsonDocument()) ?? Enumerable.Empty<BsonDocument>())
+                    }, cancellationToken: stoppingToken);
+                    _logger.LogInformation("Saved machine inventory transaction for {Hostname}", hostname);
+                }
+                else
+                {
+                    _logger.LogWarning("MongoDB is not configured. Skipping bulk machine inventory transaction for {Hostname}", hostname);
+                }
 
                 var jiraIssues = await FetchJiraIssuesAsync();
-                if (jiraIssues?.Any() == true)
+                if (jiraIssues?.Any() == true && mongo.IsConfigured)
                 {
-                    foreach (var j in jiraIssues)
-                    {
-                        j.MachineInventoryId = inventory.Id;
-                        db.JiraIssues.Add(j);
-                    }
+                    await SaveIntegrationSyncAsync(db, mongo, "Jira", jiraIssues.Select(x => x.ToBsonDocument()), stoppingToken);
                 }
 
                 var bbprs = await FetchBitbucketPullRequestsAsync();
-                if (bbprs?.Any() == true)
+                if (bbprs?.Any() == true && mongo.IsConfigured)
                 {
-                    foreach (var p in bbprs)
-                    {
-                        p.MachineInventoryId = inventory.Id;
-                        db.BitbucketPullRequests.Add(p);
-                    }
+                    await SaveIntegrationSyncAsync(db, mongo, "Bitbucket", bbprs.Select(x => x.ToBsonDocument()), stoppingToken);
                 }
-
-                await db.SaveChangesAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -76,6 +92,51 @@ public class WindowsInventoryBackgroundService : BackgroundService
         }
     }
 
+    private static async Task SaveIntegrationSyncAsync(
+        StackPulseDbContext db,
+        MongoStackPulseContext mongo,
+        string provider,
+        IEnumerable<BsonDocument> items,
+        CancellationToken cancellationToken)
+    {
+        var masterIntegrationAccessId = await db.IntegrationAccesses
+            .Where(x => x.Provider == provider && x.IsActive)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        await mongo.IntegrationSync.InsertOneAsync(new BsonDocument
+        {
+            ["masterIntegrationAccessId"] = masterIntegrationAccessId.HasValue ? masterIntegrationAccessId.Value.ToString() : BsonNull.Value,
+            ["provider"] = provider,
+            ["startedAt"] = DateTime.UtcNow,
+            ["completedAt"] = DateTime.UtcNow,
+            ["status"] = "Completed",
+            ["itemsProcessed"] = items.Count(),
+            ["payload"] = new BsonArray(items)
+        }, cancellationToken: cancellationToken);
+    }
+
+    private async Task<List<WindowsServiceInfo>> GetServicesAsync(CancellationToken cancellationToken)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return GetWindowsServices();
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return await GetLinuxServicesAsync(cancellationToken);
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return await GetMacServicesAsync(cancellationToken);
+        }
+
+        return new List<WindowsServiceInfo>();
+    }
+
+    [SupportedOSPlatform("windows")]
     private List<WindowsServiceInfo> GetWindowsServices()
     {
         var list = new List<WindowsServiceInfo>();
@@ -103,6 +164,27 @@ public class WindowsInventoryBackgroundService : BackgroundService
 
     private List<InstalledSoftwareInfo> GetInstalledSoftware()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return GetWindowsInstalledSoftware();
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return GetLinuxInstalledSoftware();
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return GetMacInstalledSoftware();
+        }
+
+        return new List<InstalledSoftwareInfo>();
+    }
+
+    [SupportedOSPlatform("windows")]
+    private List<InstalledSoftwareInfo> GetWindowsInstalledSoftware()
+    {
         var results = new List<InstalledSoftwareInfo>();
         try
         {
@@ -123,8 +205,8 @@ public class WindowsInventoryBackgroundService : BackgroundService
                         var displayName = subKey?.GetValue("DisplayName")?.ToString();
                         if (string.IsNullOrWhiteSpace(displayName)) continue;
 
-                        var version = subKey.GetValue("DisplayVersion")?.ToString();
-                        var publisher = subKey.GetValue("Publisher")?.ToString();
+                        var version = subKey?.GetValue("DisplayVersion")?.ToString();
+                        var publisher = subKey?.GetValue("Publisher")?.ToString();
 
                         results.Add(new InstalledSoftwareInfo
                         {
@@ -143,6 +225,132 @@ public class WindowsInventoryBackgroundService : BackgroundService
         }
 
         return results.GroupBy(x => x.Name).Select(g => g.First()).ToList();
+    }
+
+    private async Task<List<WindowsServiceInfo>> GetLinuxServicesAsync(CancellationToken cancellationToken)
+    {
+        var output = await RunCommandAsync("systemctl", "list-units --type=service --all --no-pager --plain --no-legend", cancellationToken);
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return new List<WindowsServiceInfo>();
+        }
+
+        return output.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Take(300)
+            .Select(line => line.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            .Where(parts => parts.Length >= 4)
+            .Select(parts => new WindowsServiceInfo
+            {
+                ServiceName = parts[0],
+                DisplayName = parts[0],
+                State = parts[3],
+                StartMode = parts[2]
+            })
+            .ToList();
+    }
+
+    private async Task<List<WindowsServiceInfo>> GetMacServicesAsync(CancellationToken cancellationToken)
+    {
+        var output = await RunCommandAsync("launchctl", "list", cancellationToken);
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return new List<WindowsServiceInfo>();
+        }
+
+        return output.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Skip(1)
+            .Take(300)
+            .Select(line => line.Split('\t', StringSplitOptions.RemoveEmptyEntries))
+            .Where(parts => parts.Length >= 3)
+            .Select(parts => new WindowsServiceInfo
+            {
+                ServiceName = parts[2],
+                DisplayName = parts[2],
+                State = parts[0] == "-" ? "Stopped" : "Running",
+                StartMode = "launchd"
+            })
+            .ToList();
+    }
+
+    private List<InstalledSoftwareInfo> GetLinuxInstalledSoftware()
+    {
+        var results = new List<InstalledSoftwareInfo>();
+        foreach (var dbPath in new[] { "/var/lib/dpkg/status", "/var/lib/rpm/Packages" })
+        {
+            if (!File.Exists(dbPath))
+            {
+                continue;
+            }
+
+            if (dbPath.EndsWith("status", StringComparison.Ordinal))
+            {
+                var packageBlocks = File.ReadAllText(dbPath).Split("\n\n", StringSplitOptions.RemoveEmptyEntries);
+                foreach (var block in packageBlocks.Take(500))
+                {
+                    var lines = block.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                    var name = lines.FirstOrDefault(x => x.StartsWith("Package:", StringComparison.OrdinalIgnoreCase))?.Replace("Package:", string.Empty).Trim();
+                    var version = lines.FirstOrDefault(x => x.StartsWith("Version:", StringComparison.OrdinalIgnoreCase))?.Replace("Version:", string.Empty).Trim();
+                    if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        results.Add(new InstalledSoftwareInfo { Name = name, Version = version, Publisher = "dpkg" });
+                    }
+                }
+            }
+            else
+            {
+                results.Add(new InstalledSoftwareInfo { Name = "RPM package database detected", Publisher = "rpm" });
+            }
+        }
+
+        return results.GroupBy(x => x.Name).Select(g => g.First()).ToList();
+    }
+
+    private List<InstalledSoftwareInfo> GetMacInstalledSoftware()
+    {
+        var appDirectories = new[] { "/Applications", "/System/Applications" };
+        return appDirectories
+            .Where(Directory.Exists)
+            .SelectMany(path => Directory.EnumerateDirectories(path, "*.app", SearchOption.TopDirectoryOnly))
+            .Take(500)
+            .Select(path => new InstalledSoftwareInfo
+            {
+                Name = Path.GetFileNameWithoutExtension(path),
+                Publisher = "Application bundle"
+            })
+            .GroupBy(x => x.Name)
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    private async Task<string?> RunCommandAsync(string fileName, string arguments, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(startInfo);
+            if (process is null)
+            {
+                return null;
+            }
+
+            var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken);
+            return process.ExitCode == 0 ? output : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Command {Command} was unavailable", fileName);
+            return null;
+        }
     }
 
     private List<DriveInfoEntry> GetDrives()

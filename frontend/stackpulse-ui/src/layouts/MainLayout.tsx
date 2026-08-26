@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import type { User } from '../types/auth';
+import logo from '../assets/logo.png';
 
 interface MainLayoutProps {
   user: User | null;
@@ -50,9 +51,12 @@ export default function MainLayout({ user, onLogout, isAuthenticated }: MainLayo
 
       <main className="main-panel">
         <header className="topbar">
-          <div>
+          <div className="topbar-brand">
+            <img src={logo} alt="StackPulse logo" className="app-logo header-logo" />
+            <div>
             <p className="eyebrow">Operations Center</p>
             <h1>StackPulse Enterprise</h1>
+            </div>
           </div>
           <div className="topbar-actions">
             <div className="search-box">Search</div>
@@ -64,6 +68,14 @@ export default function MainLayout({ user, onLogout, isAuthenticated }: MainLayo
         </header>
 
         <Outlet />
+
+        <footer className="app-footer">
+          <span className="footer-brand">
+            <img src={logo} alt="StackPulse logo" className="app-logo footer-logo" />
+            StackPulse
+          </span>
+          <span>Enterprise operations platform</span>
+        </footer>
       </main>
     </div>
   );

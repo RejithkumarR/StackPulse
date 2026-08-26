@@ -5,6 +5,8 @@ namespace StackPulse.Api.Services.Interfaces;
 public interface IAuthService
 {
     Task<LoginResponseDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default);
+    Task<LoginResponseDto> SignupAsync(SignupRequestDto request, CancellationToken cancellationToken = default);
+    Task ForgotPasswordAsync(ForgotPasswordRequestDto request, CancellationToken cancellationToken = default);
     Task<LoginResponseDto> RefreshTokenAsync(RefreshTokenRequestDto request, CancellationToken cancellationToken = default);
     Task LogoutAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<UserProfileDto> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken = default);

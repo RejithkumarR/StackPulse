@@ -16,9 +16,28 @@ public static class ServiceCollectionExtensions
 
         services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
         services.Configure<DatabaseSettings>(configuration.GetSection("DatabaseSettings"));
+        services.Configure<MongoDbSettings>(configuration.GetSection("MongoDbSettings"));
+        services.Configure<AwsSecretsManagerSettings>(configuration.GetSection("AwsSecretsManager"));
+        services.AddSingleton<ISecretConnectionStringResolver, AwsSecretsManagerConnectionStringResolver>();
+
+        var resolvedSecrets = ResolveConnectionSecrets(configuration);
 
         var provider = configuration["DatabaseSettings:Provider"] ?? "SqlServer";
-        var connectionString = configuration.GetConnectionString("DefaultConnection") ?? configuration["DatabaseSettings:ConnectionString"] ?? string.Empty;
+        var connectionString = resolvedSecrets.MySqlConnectionString
+            ?? configuration.GetConnectionString("DefaultConnection")
+            ?? configuration["DatabaseSettings:ConnectionString"]
+            ?? string.Empty;
+        var mongoConnectionString = resolvedSecrets.MongoConnectionString
+            ?? configuration["MongoDbSettings:ConnectionString"]
+            ?? string.Empty;
+
+        services.PostConfigure<MongoDbSettings>(settings =>
+        {
+            if (!string.IsNullOrWhiteSpace(mongoConnectionString))
+            {
+                settings.ConnectionString = mongoConnectionString;
+            }
+        });
 
         if (provider.Equals("MySql", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(connectionString))
         {
@@ -60,11 +79,24 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IDashboardService, DashboardService>();
+        services.AddSingleton<MongoStackPulseContext>();
 
         services.AddControllers();
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();
 
         return services;
+    }
+
+    private static (string? MySqlConnectionString, string? MongoConnectionString) ResolveConnectionSecrets(IConfiguration configuration)
+    {
+        var settings = configuration.GetSection("AwsSecretsManager").Get<AwsSecretsManagerSettings>() ?? new AwsSecretsManagerSettings();
+        if (!settings.Enabled)
+        {
+            return (null, null);
+        }
+
+        var resolver = new AwsSecretsManagerConnectionStringResolver(Microsoft.Extensions.Options.Options.Create(settings));
+        return resolver.ResolveAsync().GetAwaiter().GetResult();
     }
 }

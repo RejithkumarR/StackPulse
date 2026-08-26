@@ -16,4 +16,5 @@ public class Role
     public DateTime? UpdatedAt { get; set; }
 
     public ICollection<User> Users { get; set; } = new List<User>();
+    public ICollection<RoleAccess> RoleAccesses { get; set; } = new List<RoleAccess>();
 }

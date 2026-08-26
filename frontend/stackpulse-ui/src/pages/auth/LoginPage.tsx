@@ -1,55 +1,126 @@
 import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { authService } from '../../services/authService';
+import logo from '../../assets/logo.png';
 import type { User } from '../../types/auth';
 
 interface LoginPageProps {
   onLogin: (user: User, token: string) => void;
 }
 
+type AuthMode = 'login' | 'signup' | 'forgot';
+
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('password123');
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [mode, setMode] = useState<AuthMode>('login');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    setIsSubmitting(true);
+    setMessage('');
 
-    const demoUser: User = {
-      id: 'demo-user-1',
-      username,
-      email: `${username}@stackpulse.io`,
-      firstName: 'Demo',
-      lastName: 'Operator',
-      isActive: true,
-    };
-
-    const demoToken = 'demo-access-token';
-    onLogin(demoUser, demoToken);
-    navigate('/dashboard');
+    try {
+      if (mode === 'login') {
+        const response = await authService.login({ username, password });
+        onLogin(response.user, response.accessToken);
+        navigate('/dashboard');
+      } else if (mode === 'signup') {
+        const response = await authService.signup({ username, email, password, firstName, lastName });
+        onLogin(response.user, response.accessToken);
+        navigate('/dashboard');
+      } else {
+        await authService.forgotPassword(email);
+        setMessage('Password reset request recorded.');
+      }
+    } catch (error: any) {
+      setMessage(error?.response?.data?.message ?? 'Unable to complete the request.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (!isUnlocked) {
+    return (
+      <div className="lock-panel">
+        <button className="lock-button" type="button" onClick={() => setIsUnlocked(true)} aria-label="Unlock login">
+          <span className="lock-shackle" />
+          <span className="lock-body" />
+        </button>
+        <img src={logo} alt="StackPulse logo" className="login-logo" />
+        <p>Unlock to continue</p>
+      </div>
+    );
+  }
 
   return (
     <div className="login-panel">
       <div className="login-brand">
-        <div className="brand-mark large">S</div>
+        <img src={logo} alt="StackPulse logo" className="login-logo small" />
+        <button className="unlock-mark" type="button" onClick={() => setIsUnlocked(false)} aria-label="Lock login">
+          <span className="unlock-shackle" />
+          <span className="unlock-body" />
+        </button>
         <span>StackPulse</span>
       </div>
 
-      <h2>Welcome back</h2>
-      <p>Sign in to your operations workspace.</p>
+      <h2>{mode === 'login' ? 'Welcome back' : mode === 'signup' ? 'Create account' : 'Reset password'}</h2>
+      <p>{mode === 'login' ? 'Sign in to your operations workspace.' : mode === 'signup' ? 'Create your StackPulse access.' : 'Enter your email to request reset help.'}</p>
+
+      <div className="auth-tabs">
+        <button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Login</button>
+        <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>Signup</button>
+        <button type="button" className={mode === 'forgot' ? 'active' : ''} onClick={() => setMode('forgot')}>Forgot</button>
+      </div>
 
       <form onSubmit={handleSubmit} className="login-form">
-        <label>
-          Username
-          <input value={username} onChange={(e) => setUsername(e.target.value)} />
-        </label>
+        {mode !== 'forgot' && (
+          <label>
+            Username
+            <input required value={username} onChange={(e) => setUsername(e.target.value)} />
+          </label>
+        )}
 
-        <label>
-          Password
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        </label>
+        {mode !== 'login' && (
+          <label>
+            Email
+            <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </label>
+        )}
 
-        <button type="submit" className="primary-button">Log in</button>
+        {mode === 'signup' && (
+          <div className="name-grid">
+            <label>
+              First name
+              <input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            </label>
+            <label>
+              Last name
+              <input value={lastName} onChange={(e) => setLastName(e.target.value)} />
+            </label>
+          </div>
+        )}
+
+        {mode !== 'forgot' && (
+          <label>
+            Password
+            <input required minLength={6} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </label>
+        )}
+
+        {message ? <div className="form-message">{message}</div> : null}
+
+        <button type="submit" className="primary-button" disabled={isSubmitting}>
+          {isSubmitting ? 'Please wait' : mode === 'login' ? 'Log in' : mode === 'signup' ? 'Sign up' : 'Send reset request'}
+        </button>
       </form>
     </div>
   );
