@@ -14,6 +14,7 @@ import ErrorPage from './pages/errors/ErrorPage';
 import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
 import type { User } from './types/auth';
+import { ToastProvider } from './components/Toast';
 
 function App() {
   const [session, setSession] = useState<{ user: User | null; token: string | null }>({
@@ -40,8 +41,9 @@ function App() {
     isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 
   return (
-    <BrowserRouter>
-      <Routes>
+    <ToastProvider>
+      <BrowserRouter>
+        <Routes>
         <Route element={<AuthLayout isAuthenticated={isAuthenticated} />}>
           <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
         </Route>
@@ -58,8 +60,9 @@ function App() {
         <Route path="/500" element={<ErrorPage />} />
         <Route path="/404" element={<NotFoundPage />} />
         <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </ToastProvider>
   );
 }
 
