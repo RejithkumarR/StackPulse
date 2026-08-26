@@ -22,6 +22,16 @@ StackPulse is a centralized engineering dashboard that unifies Jira, Bitbucket, 
 - ASP.NET Core Web API backend designed for modular services and secure APIs.
 - Docker-ready project structure for local development and deployment workflows.
 
+## Current implementation
+
+- MySQL stores authentication and master data, including users, roles, refresh tokens, menus, access mappings, computer masters, and integration access.
+- MongoDB stores audit logs, application logs, machine inventory transactions, and integration sync transactions.
+- Authentication is connected to the backend API with login, signup, forgot-password, JWT access tokens, and refresh-token persistence.
+- Master configuration APIs and frontend screens support computer records and Jira, Confluence, and Bitbucket access settings.
+- The inventory worker collects Windows WMI services, installed software, and drive information, with support for Windows Service, Linux systemd, and macOS execution.
+- AWS Secrets Manager can provide MySQL and MongoDB connection strings through a single application secret.
+- The login experience includes an unlock screen, login/signup/forgot-password tabs, and a full-page background image while keeping the authentication form on its card surface.
+
 ## Repository layout
 
 - `backend/StackPulse.Api` - .NET Web API
@@ -69,6 +79,23 @@ npm run build
 ```
 
 The frontend calls the API via code in `frontend/stackpulse-ui/src/services/api.ts`.
+
+During local development, Vite proxies `/api` requests to `http://localhost:5062` by default.
+
+The frontend includes a light StackPulse theme, dashboard navigation, master configuration screens, system inventory display, and a footer in the main application layout.
+
+## Storage and secrets
+
+Set the MySQL and MongoDB connection strings before running the backend. AWS Secrets Manager is disabled by default for local development. To enable it, configure the region and secret name under `AwsSecretsManager` and provide a secret containing:
+
+```json
+{
+	"mysqlConnectionString": "server=mysql-host;database=stackpulse_master;user=stackpulse;password=change-me;",
+	"mongoConnectionString": "mongodb+srv://user:password@cluster/stackpulse_transactions"
+}
+```
+
+See `deployment/inventory-service-configuration.md` for inventory worker hosting and AWS deployment guidance.
 
 ## Development notes
 
