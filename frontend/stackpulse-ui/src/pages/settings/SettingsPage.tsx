@@ -9,6 +9,7 @@ import {
   type MasterConfiguration,
 } from '../../services/masterConfigurationService';
 import { getLatestInventory } from '../../services/systemInventoryService';
+import { useToast } from '../../components/ToastContext';
 
 const emptyComputer: ComputerMaster = { hostname: '', assetTag: '', owner: '', environment: '', isActive: true };
 const emptyIntegration: IntegrationAccess = {
@@ -22,6 +23,7 @@ const emptyIntegration: IntegrationAccess = {
 };
 
 export default function SettingsPage() {
+  const { showToast } = useToast();
   const [inventory, setInventory] = useState<any | null>(null);
   const [config, setConfig] = useState<MasterConfiguration>({ computers: [], integrations: [] });
   const [computer, setComputer] = useState<ComputerMaster>(emptyComputer);
@@ -35,24 +37,34 @@ export default function SettingsPage() {
 
   const submitComputer = async (event: FormEvent) => {
     event.preventDefault();
-    const saved = await saveComputerMaster(computer);
-    setConfig((current) => ({
-      ...current,
-      computers: [saved, ...current.computers.filter((item) => item.id !== saved.id)],
-    }));
-    setComputer(emptyComputer);
-    setStatus('Computer master saved');
+    try {
+      const saved = await saveComputerMaster(computer);
+      setConfig((current) => ({
+        ...current,
+        computers: [saved, ...current.computers.filter((item) => item.id !== saved.id)],
+      }));
+      setComputer(emptyComputer);
+      setStatus('Computer master saved');
+      showToast('Computer master saved.', 'success');
+    } catch (error: any) {
+      showToast(error?.response?.data?.message ?? 'Unable to save computer master.', 'danger');
+    }
   };
 
   const submitIntegration = async (event: FormEvent) => {
     event.preventDefault();
-    const saved = await saveIntegrationAccess(integration);
-    setConfig((current) => ({
-      ...current,
-      integrations: [saved, ...current.integrations.filter((item) => item.id !== saved.id)],
-    }));
-    setIntegration(emptyIntegration);
-    setStatus('Integration access saved');
+    try {
+      const saved = await saveIntegrationAccess(integration);
+      setConfig((current) => ({
+        ...current,
+        integrations: [saved, ...current.integrations.filter((item) => item.id !== saved.id)],
+      }));
+      setIntegration(emptyIntegration);
+      setStatus('Integration access saved');
+      showToast('Integration access saved.', 'success');
+    } catch (error: any) {
+      showToast(error?.response?.data?.message ?? 'Unable to save integration access.', 'danger');
+    }
   };
 
   return (

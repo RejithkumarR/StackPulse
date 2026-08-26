@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import logo from '../../assets/logo.png';
 import type { User } from '../../types/auth';
+import { useToast } from '../../components/ToastContext';
 
 interface LoginPageProps {
   onLogin: (user: User, token: string) => void;
@@ -13,6 +14,7 @@ type AuthMode = 'login' | 'signup' | 'forgot';
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [mode, setMode] = useState<AuthMode>('login');
   const [username, setUsername] = useState('');
@@ -32,17 +34,22 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       if (mode === 'login') {
         const response = await authService.login({ username, password });
         onLogin(response.user, response.accessToken);
+        showToast('Login successful.', 'success');
         navigate('/dashboard');
       } else if (mode === 'signup') {
         const response = await authService.signup({ username, email, password, firstName, lastName });
         onLogin(response.user, response.accessToken);
+        showToast('Account created successfully.', 'success');
         navigate('/dashboard');
       } else {
         await authService.forgotPassword(email);
         setMessage('Password reset request recorded.');
+        showToast('Password reset request sent.', 'success');
       }
     } catch (error: any) {
-      setMessage(error?.response?.data?.message ?? 'Unable to complete the request.');
+      const errorMessage = error?.response?.data?.message ?? 'Unable to complete the request.';
+      setMessage(errorMessage);
+      showToast(errorMessage, 'danger');
     } finally {
       setIsSubmitting(false);
     }
@@ -51,7 +58,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   if (!isUnlocked) {
     return (
       <div className="lock-panel">
-        <button className="lock-button" type="button" onClick={() => setIsUnlocked(true)} aria-label="Unlock login">
+        <button className="lock-button" type="button" onClick={() => { setIsUnlocked(true); showToast('Login unlocked.', 'info'); }} aria-label="Unlock login">
           <span className="lock-shackle" />
           <span className="lock-body" />
         </button>
@@ -65,7 +72,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     <div className="login-panel">
       <div className="login-brand">
         <img src={logo} alt="StackPulse logo" className="login-logo small" />
-        <button className="unlock-mark" type="button" onClick={() => setIsUnlocked(false)} aria-label="Lock login">
+        <button className="unlock-mark" type="button" onClick={() => { setIsUnlocked(false); showToast('Login locked.', 'info'); }} aria-label="Lock login">
           <span className="unlock-shackle" />
           <span className="unlock-body" />
         </button>
@@ -76,9 +83,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       <p>{mode === 'login' ? 'Sign in to your operations workspace.' : mode === 'signup' ? 'Create your StackPulse access.' : 'Enter your email to request reset help.'}</p>
 
       <div className="auth-tabs">
-        <button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Login</button>
-        <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>Signup</button>
-        <button type="button" className={mode === 'forgot' ? 'active' : ''} onClick={() => setMode('forgot')}>Forgot</button>
+        <button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); showToast('Login form selected.', 'info'); }}>Login</button>
+        <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); showToast('Signup form selected.', 'info'); }}>Signup</button>
+        <button type="button" className={mode === 'forgot' ? 'active' : ''} onClick={() => { setMode('forgot'); showToast('Password reset form selected.', 'info'); }}>Forgot</button>
       </div>
 
       <form onSubmit={handleSubmit} className="login-form">

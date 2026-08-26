@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import type { User } from '../types/auth';
 import logo from '../assets/logo.png';
+import { useToast } from '../components/ToastContext';
 
 interface MainLayoutProps {
   user: User | null;
@@ -16,6 +17,13 @@ const navigation = [
 ];
 
 export default function MainLayout({ user, onLogout, isAuthenticated }: MainLayoutProps) {
+  const { showToast } = useToast();
+
+  const handleLogout = () => {
+    onLogout();
+    showToast('You have been logged out.', 'success');
+  };
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -44,7 +52,7 @@ export default function MainLayout({ user, onLogout, isAuthenticated }: MainLayo
           </div>
 
           {isAuthenticated && (
-            <button className="logout-button" onClick={onLogout}>Logout</button>
+            <button className="logout-button" onClick={handleLogout}>Logout</button>
           )}
         </div>
       </aside>
