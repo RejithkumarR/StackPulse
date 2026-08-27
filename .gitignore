@@ -129,6 +129,12 @@ web_modules/
 .env.*
 !.env.example
 
+# Python AI service
+__pycache__/
+*.py[cod]
+.venv/
+services/ai-service/.env
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
