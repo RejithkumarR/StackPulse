@@ -12,7 +12,7 @@ public class RefreshToken
     public DateTime ExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? RevokedAt { get; set; }
-    public bool IsRevoked { get; set; }
+    public bool IsRevoked => RevokedAt.HasValue;
     public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
 
     public Guid UserId { get; set; }

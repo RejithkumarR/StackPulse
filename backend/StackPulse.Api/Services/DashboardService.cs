@@ -19,8 +19,8 @@ public class DashboardService : IDashboardService
 
     public async Task<DashboardSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default)
     {
-        var totalUsers = await _dbContext.Users.CountAsync(cancellationToken);
-        var activeUsers = await _dbContext.Users.CountAsync(u => u.IsActive, cancellationToken);
+        var totalUsers = await _dbContext.users.CountAsync(cancellationToken);
+        var activeUsers = await _dbContext.users.CountAsync(u => u.IsActive, cancellationToken);
         var totalAuditLogs = _mongoContext.IsConfigured
             ? await _mongoContext.AuditLogs.CountDocumentsAsync(FilterDefinition<Models.Mongo.MongoAuditLog>.Empty, cancellationToken: cancellationToken)
             : await _dbContext.AuditLogs.CountAsync(cancellationToken);

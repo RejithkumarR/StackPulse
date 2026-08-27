@@ -28,7 +28,7 @@ public class AuthService : IAuthService
 
     public async Task<LoginResponseDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users
+        var user = await _dbContext.users
             .Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Username == request.Username || u.Email == request.Username, cancellationToken);
 
@@ -49,7 +49,7 @@ public class AuthService : IAuthService
     {
         var username = request.Username.Trim();
         var email = request.Email.Trim();
-        var exists = await _dbContext.Users.AnyAsync(u => u.Username == username || u.Email == email, cancellationToken);
+        var exists = await _dbContext.users.AnyAsync(u => u.Username == username || u.Email == email, cancellationToken);
         if (exists)
         {
             throw new InvalidOperationException("Username or email already exists.");
@@ -72,14 +72,14 @@ public class AuthService : IAuthService
             Role = role
         };
 
-        _dbContext.Users.Add(user);
+        _dbContext.users.Add(user);
         return await IssueTokensAsync(user, cancellationToken);
     }
 
     public async Task ForgotPasswordAsync(ForgotPasswordRequestDto request, CancellationToken cancellationToken = default)
     {
         var email = request.Email.Trim();
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+        var user = await _dbContext.users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
         if (user is not null)
         {
             _logger.LogInformation("Password reset requested for user {UserId}", user.Id);
@@ -102,7 +102,6 @@ public class AuthService : IAuthService
         var accessToken = GenerateAccessToken(user);
         var newRefreshToken = GenerateRefreshToken();
 
-        token.IsRevoked = true;
         token.RevokedAt = DateTime.UtcNow;
         user.RefreshTokens.Add(new RefreshToken
         {
@@ -144,7 +143,6 @@ public class AuthService : IAuthService
 
         if (token is not null)
         {
-            token.IsRevoked = true;
             token.RevokedAt = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
@@ -152,7 +150,7 @@ public class AuthService : IAuthService
 
     public async Task<UserProfileDto> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users
+        var user = await _dbContext.users
             .AsNoTracking()
             .Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);

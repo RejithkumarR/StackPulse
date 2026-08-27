@@ -17,7 +17,7 @@ public class UserService : IUserService
 
     public async Task<IReadOnlyCollection<UserListItemDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Users
+        return await _dbContext.users
             .AsNoTracking()
             .Include(u => u.Role)
             .OrderBy(u => u.Username)
@@ -36,7 +36,7 @@ public class UserService : IUserService
 
     public async Task<UserDetailDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Users
+        return await _dbContext.users
             .AsNoTracking()
             .Include(u => u.Role)
             .Where(u => u.Id == id)
@@ -57,12 +57,12 @@ public class UserService : IUserService
 
     public async Task<UserDetailDto> CreateAsync(CreateUserRequestDto request, CancellationToken cancellationToken = default)
     {
-        if (await _dbContext.Users.AnyAsync(u => u.Username == request.Username, cancellationToken))
+        if (await _dbContext.users.AnyAsync(u => u.Username == request.Username, cancellationToken))
         {
             throw new InvalidOperationException("Username already exists.");
         }
 
-        if (await _dbContext.Users.AnyAsync(u => u.Email == request.Email, cancellationToken))
+        if (await _dbContext.users.AnyAsync(u => u.Email == request.Email, cancellationToken))
         {
             throw new InvalidOperationException("Email already exists.");
         }
@@ -83,7 +83,7 @@ public class UserService : IUserService
             CreatedAt = DateTime.UtcNow
         };
 
-        _dbContext.Users.Add(user);
+        _dbContext.users.Add(user);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new UserDetailDto
@@ -102,7 +102,7 @@ public class UserService : IUserService
 
     public async Task<UserDetailDto?> UpdateAsync(Guid id, UpdateUserRequestDto request, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+        var user = await _dbContext.users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         if (user is null)
         {
             return null;
@@ -120,7 +120,7 @@ public class UserService : IUserService
 
         if (!string.IsNullOrWhiteSpace(request.Email) && request.Email != user.Email)
         {
-            if (await _dbContext.Users.AnyAsync(u => u.Email == request.Email && u.Id != id, cancellationToken))
+            if (await _dbContext.users.AnyAsync(u => u.Email == request.Email && u.Id != id, cancellationToken))
             {
                 throw new InvalidOperationException("Email already exists.");
             }
@@ -141,13 +141,13 @@ public class UserService : IUserService
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+        var user = await _dbContext.users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         if (user is null)
         {
             return false;
         }
 
-        _dbContext.Users.Remove(user);
+        _dbContext.users.Remove(user);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
