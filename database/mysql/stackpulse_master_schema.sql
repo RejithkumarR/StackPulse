@@ -33,7 +33,7 @@ CREATE TABLE users (
 
 CREATE TABLE refresh_tokens (
   id CHAR(36) NOT NULL PRIMARY KEY,
-  token LONGTEXT NOT NULL,
+  token VARCHAR(512) NOT NULL,
   expires_at DATETIME(6) NOT NULL,
   created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   revoked_at DATETIME(6) NULL,
@@ -93,3 +93,7 @@ CREATE TABLE integration_accesses (
   updated_at DATETIME(6) NULL,
   UNIQUE KEY ux_integration_accesses_provider_name (provider, display_name)
 );
+
+-- Upgrade existing installations after changing refresh_tokens.token from LONGTEXT.
+ALTER TABLE refresh_tokens
+  MODIFY COLUMN token VARCHAR(512) NOT NULL;

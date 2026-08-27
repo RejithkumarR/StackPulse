@@ -22,13 +22,11 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
-    setMessage('');
 
     try {
       if (mode === 'login') {
@@ -43,12 +41,10 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         navigate('/dashboard');
       } else {
         await authService.forgotPassword(email);
-        setMessage('Password reset request recorded.');
         showToast('Password reset request sent.', 'success');
       }
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message ?? 'Unable to complete the request.';
-      setMessage(errorMessage);
       showToast(errorMessage, 'danger');
     } finally {
       setIsSubmitting(false);
@@ -122,8 +118,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             <input required minLength={6} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </label>
         )}
-
-        {message ? <div className="form-message">{message}</div> : null}
 
         <button type="submit" className="primary-button" disabled={isSubmitting}>
           {isSubmitting ? 'Please wait' : mode === 'login' ? 'Log in' : mode === 'signup' ? 'Sign up' : 'Send reset request'}

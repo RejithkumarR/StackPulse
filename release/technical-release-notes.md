@@ -2,21 +2,23 @@
 
 ## Release Summary
 
-This release updates StackPulse into a split-storage operations platform with MySQL for authentication/master data and MongoDB for transaction, audit, inventory, and application log data. It also adds AWS Secrets Manager based configuration, cross-platform inventory collection, real frontend/backend authentication, and a refreshed white UI with StackPulse sky-blue branding.
+This release updates StackPulse into a split-storage operations platform with MySQL for authentication/master data and MongoDB for transaction, audit, inventory, and application log data. AWS Secrets Manager integration, user creation, login, toaster feedback, and computer-master saving have been verified. The next phase is Jira and utility integration-token resolution with synchronization monitoring.
 
 ## Backend API
 
 - Configured MySQL as the primary relational provider for authentication and master data.
-- Added AWS Secrets Manager integration using one application secret for all connection strings.
+- Added and verified AWS Secrets Manager integration using one application secret for MySQL and MongoDB connection strings.
 - Added MongoDB connection support for audit logs, application logs, machine inventory transactions, and integration sync transactions.
 - Added master configuration APIs under `api/master-configuration`.
 - Added support for computer master configuration.
 - Added support for Jira, Confluence, and Bitbucket access configuration.
 - Updated dashboard activity and audit counts to read from MongoDB when configured.
 - Updated inventory and integration read APIs to use MongoDB first, with EF fallback for local development.
-- Added real signup and forgot-password endpoints.
+- Added and verified real signup, login, refresh-token, logout, and forgot-password flows.
 - Fixed local development authentication behavior when using EF InMemory fallback.
 - Added JWT defaults for local development.
+- Added explicit lowercase table and snake_case column mappings for the MySQL schema.
+- Updated refresh-token persistence to use `user_id` and `revoked_at`.
 
 ## Authentication
 
@@ -27,6 +29,7 @@ This release updates StackPulse into a split-storage operations platform with My
 - Unauthenticated users remain on the login screen.
 - Authenticated users are routed to the dashboard.
 - Refresh token persistence is configured through the backend.
+- User creation and login were verified through the frontend/API flow.
 
 ## Database Design
 
@@ -53,8 +56,8 @@ MongoDB stores transaction and operational data:
 
 - Audit logs
 - Application logs
-- Machine inventory transactions
-- Integration sync transactions
+- Machine inventory and integration sync transactions in `transactions`
+- Application request and exception logs in `stackpulse_logs`
 
 MongoDB schema/example files were added under:
 
@@ -69,6 +72,8 @@ MongoDB documents include MySQL master IDs where applicable, such as:
 - `masterUserId`
 - `masterEntityId`
 
+The configured MongoDB database is `stackpulse`, with collections `audit_logs`, `stackpulse_logs`, and `transactions`.
+
 ## AWS Secrets Manager
 
 The application now uses one AWS Secrets Manager secret for all application connection strings.
@@ -78,7 +83,7 @@ Expected secret JSON:
 ```json
 {
   "mysqlConnectionString": "server=mysql-host;database=stackpulse_master;user=stackpulse;password=change-me;",
-  "mongoConnectionString": "mongodb+srv://user:password@cluster/stackpulse_transactions"
+  "mongoConnectionString": "mongodb://user:password@mongo-host:27017/stackpulse?authSource=admin"
 }
 ```
 
@@ -153,6 +158,8 @@ The inventory worker owns bulk data collection and transaction writes.
 - Added a footer to the main layout.
 - Updated sidebar, cards, forms, tables, and login views to match the light theme.
 - Added master configuration UI for computers and integration access details.
+- Verified computer-master saving with success and failure toaster feedback.
+- Added a global top-right toaster for authentication and settings feedback.
 - Fixed Vite API proxy configuration.
 - Default frontend dev proxy target is `http://localhost:5062`.
 
@@ -180,6 +187,20 @@ Runtime checks completed successfully:
 - Backend signup endpoint returned `200`.
 - Backend login endpoint returned `200`.
 - Backend forgot-password endpoint returned `200`.
+- AWS Secrets Manager integration was verified for backend secret resolution.
+- User creation and login were verified.
+- Computer-master saving was verified.
+- Signup no longer displays a duplicate inline alert; feedback is shown in the top-right toaster.
+
+## Next Phase
+
+- Implement Jira API synchronization using server-side credentials resolved from AWS Secrets Manager.
+- Implement utility access-token saving through secret references, not plaintext tokens in MySQL or React.
+- Apply the same pattern to Bitbucket, Confluence, CI/CD, DevOps, Webex, Teams, email, and other providers.
+- Write synchronization results to MongoDB `transactions` with status, timestamps, counts, and safe error metadata.
+- Add scheduled monitoring, provider health checks, stale-sync detection, token-expiry checks, retries, and dashboard alerts.
+
+Detailed implementation, database contracts, security rules, and the verification checklist are documented in `release/implementation-status.md`.
 
 Development URLs:
 

@@ -29,7 +29,10 @@ StackPulse is a centralized engineering dashboard that unifies Jira, Bitbucket, 
 - Authentication is connected to the backend API with login, signup, forgot-password, JWT access tokens, and refresh-token persistence.
 - Master configuration APIs and frontend screens support computer records and Jira, Confluence, and Bitbucket access settings.
 - The inventory worker collects Windows WMI services, installed software, and drive information, with support for Windows Service, Linux systemd, and macOS execution.
-- AWS Secrets Manager can provide MySQL and MongoDB connection strings through a single application secret.
+- AWS Secrets Manager integration has been verified for providing MySQL and MongoDB connection strings through a single application secret.
+- User creation, login, refresh-token persistence, and logout are implemented and connected to the frontend.
+- Authentication and settings feedback uses a global top-right toaster alert; signup no longer renders a duplicate inline message.
+- Computer-master saving is implemented with success and failure toaster feedback.
 - The login experience includes an unlock screen, login/signup/forgot-password tabs, and a full-page background image while keeping the authentication form on its card surface.
 
 ## Repository layout
@@ -86,14 +89,25 @@ The frontend includes a light StackPulse theme, dashboard navigation, master con
 
 ## Storage and secrets
 
-Set the MySQL and MongoDB connection strings before running the backend. AWS Secrets Manager is disabled by default for local development. To enable it, configure the region and secret name under `AwsSecretsManager` and provide a secret containing:
+Set the MySQL and MongoDB connection strings before running the backend. AWS Secrets Manager is configured through `AwsSecretsManager` and can provide both values from one secret:
 
 ```json
 {
 	"mysqlConnectionString": "server=mysql-host;database=stackpulse_master;user=stackpulse;password=change-me;",
-	"mongoConnectionString": "mongodb+srv://user:password@cluster/stackpulse_transactions"
+	"mongoConnectionString": "mongodb://user:password@mongo-host:27017/stackpulse?authSource=admin"
 }
 ```
+
+The MongoDB database is `stackpulse`. The configured collections are `audit_logs`, `stackpulse_logs`, and `transactions`. Use one `?` in a MongoDB URI; additional options are separated with `&`.
+
+For local AWS credentials, use the standard AWS profile outside the repository:
+
+```powershell
+aws configure --profile stackpulse-local
+$env:AWS_PROFILE = "stackpulse-local"
+```
+
+Never place AWS keys, database passwords, JWT production keys, or provider access tokens in the frontend or source control.
 
 See `deployment/inventory-service-configuration.md` for inventory worker hosting and AWS deployment guidance.
 
@@ -101,7 +115,9 @@ See `deployment/inventory-service-configuration.md` for inventory worker hosting
 
 - Controllers and services are under `backend/StackPulse.Api/Controllers` and `backend/StackPulse.Api/Services`.
 - DTOs live in `backend/StackPulse.Api/DTOs`.
-- If you need to update DB schema, use your EF Core migration workflow against `backend/StackPulse.Api`.
+- MySQL schema and seed scripts live under `database/mysql`; the current SQL contract uses lowercase snake_case names.
+- Detailed implementation status and the next Jira/utility-token monitoring phase are documented in `release/implementation-status.md`.
+- Jira synchronization, utility access-token resolution, scheduled monitoring, and provider failure alerting are the next implementation items.
 
 ## Contributing
 
