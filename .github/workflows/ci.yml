@@ -64,3 +64,30 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+
+  ai-service:
+    name: Python AI Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/ai-service
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/ai-service/requirements.txt
+
+      - name: Install AI service dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile Python modules
+        run: python -m compileall -q app
+
+      - name: Import AI service
+        run: python -c "from app.main import app; print(app.title)"
