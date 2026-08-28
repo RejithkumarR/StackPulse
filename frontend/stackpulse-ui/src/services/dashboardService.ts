@@ -8,6 +8,10 @@ export interface DashboardSummary {
   alerts: number;
   activeSessions: number;
   totalAuditLogs: number;
+  jiraProjectCount: number;
+  bitbucketRepositoryCount: number;
+  jiraProjects: string[];
+  bitbucketRepositories: string[];
 }
 
 export interface ActivityItem {

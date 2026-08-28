@@ -43,6 +43,18 @@ public class IntegrationsController : ControllerBase
         return Ok(new { data = items });
     }
 
+    [HttpGet("github/latest")]
+    public async Task<IActionResult> GetLatestGitHub()
+    {
+        if (_mongo.IsConfigured)
+        {
+            return Ok(new { data = await GetMongoIntegrationPayload("GitHub") });
+        }
+
+        var items = await _db.GitHubPullRequests.OrderByDescending(x => x.CollectedAt).Take(50).ToListAsync();
+        return Ok(new { data = items });
+    }
+
     private async Task<IEnumerable<object>> GetMongoIntegrationPayload(string provider)
     {
         var document = await _mongo.IntegrationSync

@@ -10,6 +10,10 @@ public class DashboardSummaryDto
     public int ActiveSessions { get; set; }
     public DateTime LastUpdated { get; set; }
     public int TotalAuditLogs { get; set; }
+    public int JiraProjectCount { get; set; }
+    public int BitbucketRepositoryCount { get; set; }
+    public IReadOnlyCollection<string> JiraProjects { get; set; } = Array.Empty<string>();
+    public IReadOnlyCollection<string> BitbucketRepositories { get; set; } = Array.Empty<string>();
 }
 
 public class ActivityItemDto

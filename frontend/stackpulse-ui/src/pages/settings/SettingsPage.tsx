@@ -22,6 +22,13 @@ const emptyIntegration: IntegrationAccess = {
   isActive: true,
 };
 
+const providers = ['Jira', 'Bitbucket', 'GitHub', 'Confluence', 'Azure DevOps', 'Jenkins', 'GitLab', 'AWS', 'Docker', 'Kubernetes', 'MySQL', 'MongoDB', 'Email', 'Microsoft Teams', 'Webex', 'ServiceNow', 'PagerDuty'];
+const providerGroups: Record<string, string[]> = {
+  'Work & knowledge': ['Jira', 'Bitbucket', 'GitHub', 'Confluence', 'Azure DevOps', 'GitLab'],
+  'Delivery & infrastructure': ['Jenkins', 'AWS', 'Docker', 'Kubernetes', 'MySQL', 'MongoDB'],
+  'Communication & response': ['Email', 'Microsoft Teams', 'Webex', 'ServiceNow', 'PagerDuty'],
+};
+
 export default function SettingsPage() {
   const { showToast } = useToast();
   const [inventory, setInventory] = useState<any | null>(null);
@@ -29,6 +36,9 @@ export default function SettingsPage() {
   const [computer, setComputer] = useState<ComputerMaster>(emptyComputer);
   const [integration, setIntegration] = useState<IntegrationAccess>(emptyIntegration);
   const [status, setStatus] = useState('');
+  const [activeTab, setActiveTab] = useState('Work & knowledge');
+  const [showIntegrationModal, setShowIntegrationModal] = useState(false);
+  const [pollingMinutes, setPollingMinutes] = useState('15');
 
   useEffect(() => {
     getLatestInventory().then(setInventory).catch(() => setInventory(null));
@@ -60,6 +70,7 @@ export default function SettingsPage() {
         integrations: [saved, ...current.integrations.filter((item) => item.id !== saved.id)],
       }));
       setIntegration(emptyIntegration);
+      setShowIntegrationModal(false);
       setStatus('Integration access saved');
       showToast('Integration access saved.', 'success');
     } catch (error: any) {
@@ -69,9 +80,9 @@ export default function SettingsPage() {
 
   return (
     <div className="content-panel">
-      <div className="panel-card">
+      <div className="panel-card settings-hero">
         <div className="section-header">
-          <h3>Master configuration</h3>
+          <div><p className="eyebrow dark">Control plane</p><h2>Configure your operations workspace</h2><p className="muted">Connect services once. StackPulse keeps the signals, prompts, and secrets organized.</p></div>
           {status ? <span className="status good">{status}</span> : null}
         </div>
         <div className="settings-list">
@@ -87,6 +98,7 @@ export default function SettingsPage() {
             <span>Connection source</span>
             <strong>AWS Secrets Manager</strong>
           </div>
+          <div><span>Automation cadence</span><select className="inline-select" value={pollingMinutes} onChange={(e) => setPollingMinutes(e.target.value)}><option value="5">Every 5 minutes</option><option value="15">Every 15 minutes</option><option value="30">Every 30 minutes</option><option value="60">Every hour</option></select></div>
         </div>
       </div>
 
@@ -111,27 +123,16 @@ export default function SettingsPage() {
         </div>
 
         <div className="panel-card">
-          <h3>Integration access</h3>
-          <form className="config-form" onSubmit={submitIntegration}>
-            <select value={integration.provider} onChange={(e) => setIntegration({ ...integration, provider: e.target.value })}>
-              <option>Jira</option>
-              <option>Confluence</option>
-              <option>Bitbucket</option>
-            </select>
-            <input required placeholder="Display name" value={integration.displayName} onChange={(e) => setIntegration({ ...integration, displayName: e.target.value })} />
-            <input required placeholder="Base URL" value={integration.baseUrl} onChange={(e) => setIntegration({ ...integration, baseUrl: e.target.value })} />
-            <input placeholder="Project / space / workspace key" value={integration.projectKey} onChange={(e) => setIntegration({ ...integration, projectKey: e.target.value })} />
-            <input placeholder="Username" value={integration.username} onChange={(e) => setIntegration({ ...integration, username: e.target.value })} />
-            <input placeholder="AWS secret reference" value={integration.secretReference} onChange={(e) => setIntegration({ ...integration, secretReference: e.target.value })} />
-            <button className="primary-button small" type="submit">Save access</button>
-          </form>
+          <div className="section-header"><div><h3>Integration access</h3><p className="muted">Credentials stay in the secret store. Only references are saved here.</p></div><button className="primary-button small" type="button" onClick={() => { setIntegration({ ...emptyIntegration, provider: providerGroups[activeTab][0] }); setShowIntegrationModal(true); }}>+ Add service</button></div>
+          <div className="settings-tabs">{Object.keys(providerGroups).map((group) => <button type="button" className={activeTab === group ? 'active' : ''} key={group} onClick={() => setActiveTab(group)}>{group}</button>)}</div>
           <div className="compact-list">
-            {config.integrations.map((item) => (
-              <button type="button" key={item.id ?? `${item.provider}-${item.displayName}`} onClick={() => setIntegration(item)}>
+            {config.integrations.filter((item) => providerGroups[activeTab].includes(item.provider)).map((item) => (
+              <button type="button" key={item.id ?? `${item.provider}-${item.displayName}`} onClick={() => { setIntegration(item); setShowIntegrationModal(true); }}>
                 <strong>{item.provider}: {item.displayName}</strong>
                 <span>{item.projectKey || item.baseUrl}</span>
               </button>
             ))}
+            {!config.integrations.some((item) => providerGroups[activeTab].includes(item.provider)) && <p className="empty-state">No services configured in this group.</p>}
           </div>
         </div>
       </div>
@@ -169,6 +170,8 @@ export default function SettingsPage() {
           <p>No inventory available yet.</p>
         )}
       </div>
+
+      {showIntegrationModal && <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowIntegrationModal(false)}><div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="integration-title" onMouseDown={(event) => event.stopPropagation()}><div className="section-header"><div><p className="eyebrow dark">Service connection</p><h2 id="integration-title">Add integration</h2></div><button className="close-button" type="button" onClick={() => setShowIntegrationModal(false)} aria-label="Close">×</button></div><form className="config-form modal-form" onSubmit={submitIntegration}><label>Provider<select value={integration.provider} onChange={(e) => setIntegration({ ...integration, provider: e.target.value })}>{providers.map((provider) => <option key={provider}>{provider}</option>)}</select></label><label>Display name<input required placeholder="Production Jira" value={integration.displayName} onChange={(e) => setIntegration({ ...integration, displayName: e.target.value })} /></label><label>Base URL<input required placeholder="https://..." value={integration.baseUrl} onChange={(e) => setIntegration({ ...integration, baseUrl: e.target.value })} /></label><label>Project / space / workspace<input placeholder="Optional scope" value={integration.projectKey} onChange={(e) => setIntegration({ ...integration, projectKey: e.target.value })} /></label><label>Username<input placeholder="Optional username" value={integration.username} onChange={(e) => setIntegration({ ...integration, username: e.target.value })} /></label><label>AWS secret reference<input placeholder="secrets/stackpulse/jira" value={integration.secretReference} onChange={(e) => setIntegration({ ...integration, secretReference: e.target.value })} /></label><div className="modal-actions"><button className="secondary-button" type="button" onClick={() => setShowIntegrationModal(false)}>Cancel</button><button className="primary-button small" type="submit">Save service</button></div></form></div></div>}
     </div>
   );
 }

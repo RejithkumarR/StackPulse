@@ -20,7 +20,7 @@ Then configure both the API and inventory service:
   "AwsSecretsManager": {
     "Enabled": true,
     "Region": "us-east-1",
-    "SecretName": "stackpulse/app/config"
+    "SecretName": "stackpulse"
   }
 }
 ```

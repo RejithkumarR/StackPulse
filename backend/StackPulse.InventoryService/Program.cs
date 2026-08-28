@@ -1,11 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting.WindowsServices;
+using NLog.Web;
 using StackPulse.Api.Configuration;
 using StackPulse.Api.Data;
 using StackPulse.Api.Services;
 using StackPulse.InventoryService.Services;
 
 var builder = Host.CreateDefaultBuilder(args)
+    .UseNLog()
     .ConfigureAppConfiguration((context, cfg) =>
     {
         // default configuration sources already added (appsettings.json)
