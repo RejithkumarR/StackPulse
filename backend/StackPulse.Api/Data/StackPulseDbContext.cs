@@ -23,6 +23,8 @@ public class StackPulseDbContext : DbContext
     public DbSet<DriveInfoEntry> Drives => Set<DriveInfoEntry>();
     public DbSet<JiraIssue> JiraIssues => Set<JiraIssue>();
     public DbSet<BitbucketPullRequest> BitbucketPullRequests => Set<BitbucketPullRequest>();
+    public DbSet<GitHubPullRequest> GitHubPullRequests => Set<GitHubPullRequest>();
+    public DbSet<AiPromptTemplate> AiPromptTemplates => Set<AiPromptTemplate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -1,11 +1,14 @@
 
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
+using NLog.Web;
 using StackPulse.Api.Data;
 using StackPulse.Api.Extensions;
 using StackPulse.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseNLog();
 
 builder.Services.AddStackPulseServices(builder.Configuration);
 

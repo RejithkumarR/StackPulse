@@ -36,51 +36,30 @@ public class WindowsInventoryBackgroundService : BackgroundService
                 using var scope = _services.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<StackPulseDbContext>();
                 var mongo = scope.ServiceProvider.GetRequiredService<MongoStackPulseContext>();
-                var hostname = Environment.MachineName;
-                var masterComputerId = await db.ComputerMasters
-                    .Where(x => x.Hostname == hostname)
-                    .Select(x => (Guid?)x.Id)
-                    .FirstOrDefaultAsync(stoppingToken);
 
-                var inventory = new MachineInventory
+                if (!mongo.IsConfigured)
                 {
-                    Hostname = hostname,
-                    OSVersion = RuntimeInformation.OSDescription,
-                    CollectedAt = DateTime.UtcNow,
-                    WindowsServices = await GetServicesAsync(stoppingToken),
-                    InstalledSoftwares = GetInstalledSoftware(),
-                    Drives = GetDrives()
-                };
-
-                if (mongo.IsConfigured)
-                {
-                    await mongo.MachineInventory.InsertOneAsync(new BsonDocument
-                    {
-                        ["masterComputerId"] = masterComputerId.HasValue ? masterComputerId.Value.ToString() : BsonNull.Value,
-                        ["hostname"] = inventory.Hostname,
-                        ["osVersion"] = inventory.OSVersion,
-                        ["collectedAt"] = inventory.CollectedAt,
-                        ["windowsServices"] = new BsonArray(inventory.WindowsServices?.Select(x => x.ToBsonDocument()) ?? Enumerable.Empty<BsonDocument>()),
-                        ["installedSoftwares"] = new BsonArray(inventory.InstalledSoftwares?.Select(x => x.ToBsonDocument()) ?? Enumerable.Empty<BsonDocument>()),
-                        ["drives"] = new BsonArray(inventory.Drives?.Select(x => x.ToBsonDocument()) ?? Enumerable.Empty<BsonDocument>())
-                    }, cancellationToken: stoppingToken);
-                    _logger.LogInformation("Saved machine inventory transaction for {Hostname}", hostname);
+                    _logger.LogWarning("MongoDB is not configured; skipping integration synchronization.");
                 }
                 else
                 {
-                    _logger.LogWarning("MongoDB is not configured. Skipping bulk machine inventory transaction for {Hostname}", hostname);
-                }
+                    var jiraIssues = await FetchJiraIssuesAsync();
+                    if (jiraIssues is not null)
+                    {
+                        await SaveIntegrationSyncAsync(db, mongo, "Jira", jiraIssues.Select(x => x.ToBsonDocument()), stoppingToken);
+                    }
 
-                var jiraIssues = await FetchJiraIssuesAsync();
-                if (jiraIssues?.Any() == true && mongo.IsConfigured)
-                {
-                    await SaveIntegrationSyncAsync(db, mongo, "Jira", jiraIssues.Select(x => x.ToBsonDocument()), stoppingToken);
-                }
+                    var bbprs = await FetchBitbucketPullRequestsAsync();
+                    if (bbprs is not null)
+                    {
+                        await SaveIntegrationSyncAsync(db, mongo, "Bitbucket", bbprs.Select(x => x.ToBsonDocument()), stoppingToken);
+                    }
 
-                var bbprs = await FetchBitbucketPullRequestsAsync();
-                if (bbprs?.Any() == true && mongo.IsConfigured)
-                {
-                    await SaveIntegrationSyncAsync(db, mongo, "Bitbucket", bbprs.Select(x => x.ToBsonDocument()), stoppingToken);
+                    var githubPrs = await FetchGitHubPullRequestsAsync();
+                    if (githubPrs is not null)
+                    {
+                        await SaveIntegrationSyncAsync(db, mongo, "GitHub", githubPrs.Select(x => x.ToBsonDocument()), stoppingToken);
+                    }
                 }
             }
             catch (Exception ex)
@@ -417,6 +396,7 @@ public class WindowsInventoryBackgroundService : BackgroundService
                 foreach (var item in issuesElem.EnumerateArray())
                 {
                     var key = item.GetProperty("key").GetString();
+                    var projectKey = key?.Split('-', 2)[0];
                     var fields = item.GetProperty("fields");
                     var summary = fields.GetProperty("summary").GetString();
                     var status = fields.GetProperty("status").GetProperty("name").GetString();
@@ -424,6 +404,7 @@ public class WindowsInventoryBackgroundService : BackgroundService
                     issues.Add(new JiraIssue
                     {
                         Key = key,
+                        ProjectKey = projectKey,
                         Summary = summary,
                         Status = status,
                         Url = baseUrl.TrimEnd('/') + "/browse/" + key,
@@ -497,6 +478,7 @@ public class WindowsInventoryBackgroundService : BackgroundService
                             prs.Add(new BitbucketPullRequest
                             {
                                 Repo = repoName,
+                                RepoSlug = repoSlug,
                                 Title = title,
                                 State = state,
                                 Author = author,
@@ -513,6 +495,65 @@ public class WindowsInventoryBackgroundService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching Bitbucket PRs");
+            return null;
+        }
+    }
+
+    private async Task<List<GitHubPullRequest>?> FetchGitHubPullRequestsAsync()
+    {
+        try
+        {
+            var baseUrl = _configuration["GitHub:BaseUrl"] ?? "https://api.github.com";
+            var token = _configuration["GitHub:Token"];
+            var repositories = (_configuration["GitHub:Repositories"] ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (string.IsNullOrWhiteSpace(token) || repositories.Length == 0)
+            {
+                _logger.LogDebug("GitHub settings not configured, skipping GitHub fetch.");
+                return null;
+            }
+
+            using var client = new System.Net.Http.HttpClient();
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("StackPulse-InventoryService/1.0");
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+            var prs = new List<GitHubPullRequest>();
+
+            foreach (var repository in repositories)
+            {
+                var url = $"{baseUrl.TrimEnd('/')}/repos/{repository.Trim('/')}/pulls?state=open&per_page=50";
+                var response = await client.GetAsync(url);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("GitHub pull request fetch for {Repository} returned {Status}", repository, response.StatusCode);
+                    continue;
+                }
+
+                using var stream = await response.Content.ReadAsStreamAsync();
+                using var document = await System.Text.Json.JsonDocument.ParseAsync(stream);
+                if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array) continue;
+
+                foreach (var pullRequest in document.RootElement.EnumerateArray())
+                {
+                    prs.Add(new GitHubPullRequest
+                    {
+                        Repository = repository,
+                        Number = pullRequest.GetProperty("number").GetInt32(),
+                        Title = pullRequest.GetProperty("title").GetString(),
+                        Author = pullRequest.GetProperty("user").GetProperty("login").GetString(),
+                        State = pullRequest.GetProperty("state").GetString(),
+                        Url = pullRequest.GetProperty("html_url").GetString(),
+                        CollectedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            return prs;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching GitHub pull requests");
             return null;
         }
     }

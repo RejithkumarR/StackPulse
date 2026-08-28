@@ -94,6 +94,18 @@ CREATE TABLE integration_accesses (
   UNIQUE KEY ux_integration_accesses_provider_name (provider, display_name)
 );
 
+CREATE TABLE ai_prompt_templates (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  prompt_key VARCHAR(100) NOT NULL,
+  name VARCHAR(160) NOT NULL,
+  template LONGTEXT NOT NULL,
+  version INT NOT NULL DEFAULT 1,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at DATETIME(6) NULL,
+  UNIQUE KEY ux_ai_prompt_templates_key_version (prompt_key, version)
+);
+
 -- Upgrade existing installations after changing refresh_tokens.token from LONGTEXT.
 ALTER TABLE refresh_tokens
   MODIFY COLUMN token VARCHAR(512) NOT NULL;

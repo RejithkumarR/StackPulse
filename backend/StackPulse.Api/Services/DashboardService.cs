@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using StackPulse.Api.Data;
 using StackPulse.Api.DTOs.Dashboard;
@@ -21,9 +22,11 @@ public class DashboardService : IDashboardService
     {
         var totalUsers = await _dbContext.users.CountAsync(cancellationToken);
         var activeUsers = await _dbContext.users.CountAsync(u => u.IsActive, cancellationToken);
+        var auditLogFilter = Builders<Models.Mongo.MongoAuditLog>.Filter.Exists(x => x.Action, true);
         var totalAuditLogs = _mongoContext.IsConfigured
-            ? await _mongoContext.AuditLogs.CountDocumentsAsync(FilterDefinition<Models.Mongo.MongoAuditLog>.Empty, cancellationToken: cancellationToken)
+            ? await _mongoContext.AuditLogs.CountDocumentsAsync(auditLogFilter, cancellationToken: cancellationToken)
             : await _dbContext.AuditLogs.CountAsync(cancellationToken);
+        var integrationStats = await GetIntegrationStatsAsync(cancellationToken);
 
         return new DashboardSummaryDto
         {
@@ -35,15 +38,73 @@ public class DashboardService : IDashboardService
             ActiveSessions = 18,
             LastUpdated = DateTime.UtcNow,
             TotalAuditLogs = (int)Math.Min(totalAuditLogs, int.MaxValue)
+            ,JiraProjectCount = integrationStats.JiraProjects.Count
+            ,BitbucketRepositoryCount = integrationStats.BitbucketRepositories.Count
+            ,JiraProjects = integrationStats.JiraProjects
+            ,BitbucketRepositories = integrationStats.BitbucketRepositories
         };
     }
+
+    private async Task<(IReadOnlyCollection<string> JiraProjects, IReadOnlyCollection<string> BitbucketRepositories)> GetIntegrationStatsAsync(CancellationToken cancellationToken)
+    {
+        if (!_mongoContext.IsConfigured)
+        {
+            var projects = await _dbContext.JiraIssues
+                .Where(x => x.ProjectKey != null)
+                .Select(x => x.ProjectKey!)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+            var repositoryNames = await _dbContext.BitbucketPullRequests
+                .Where(x => x.Repo != null)
+                .Select(x => x.Repo!)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+            return (projects, repositoryNames);
+        }
+
+        var jira = await GetLatestIntegrationPayloadAsync("Jira", cancellationToken);
+        var bitbucket = await GetLatestIntegrationPayloadAsync("Bitbucket", cancellationToken);
+        var jiraProjects = jira
+            .Select(x => GetPayloadString(x, "projectKey") ?? GetPayloadString(x, "key")?.Split('-', 2)[0])
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+        var repositories = bitbucket
+            .Select(x => GetPayloadString(x, "repo") ?? GetPayloadString(x, "repoSlug"))
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+        return (jiraProjects, repositories);
+    }
+
+    private async Task<IReadOnlyCollection<BsonDocument>> GetLatestIntegrationPayloadAsync(string provider, CancellationToken cancellationToken)
+    {
+        var document = await _mongoContext.IntegrationSync
+            .Find(Builders<BsonDocument>.Filter.Eq("provider", provider))
+            .SortByDescending(x => x["completedAt"])
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (document is null || !document.TryGetValue("payload", out var payload) || !payload.IsBsonArray)
+        {
+            return Array.Empty<BsonDocument>();
+        }
+
+        return payload.AsBsonArray.OfType<BsonDocument>().ToList();
+    }
+
+    private static string? GetPayloadString(BsonDocument document, string name) =>
+        document.TryGetValue(name, out var value) && value.IsString ? value.AsString : null;
 
     public async Task<IReadOnlyCollection<ActivityItemDto>> GetRecentActivityAsync(CancellationToken cancellationToken = default)
     {
         if (_mongoContext.IsConfigured)
         {
             var mongoItems = await _mongoContext.AuditLogs
-                .Find(FilterDefinition<Models.Mongo.MongoAuditLog>.Empty)
+                .Find(Builders<Models.Mongo.MongoAuditLog>.Filter.Exists(x => x.Action, true))
                 .SortByDescending(x => x.CreatedAt)
                 .Limit(5)
                 .ToListAsync(cancellationToken);

@@ -28,7 +28,7 @@ StackPulse is a centralized engineering dashboard that unifies Jira, Bitbucket, 
 - MongoDB stores audit logs, application logs, machine inventory transactions, and integration sync transactions.
 - Authentication is connected to the backend API with login, signup, forgot-password, JWT access tokens, and refresh-token persistence.
 - Master configuration APIs and frontend screens support computer records and Jira, Confluence, and Bitbucket access settings.
-- The inventory worker collects Windows WMI services, installed software, and drive information, with support for Windows Service, Linux systemd, and macOS execution.
+- The inventory worker is hosted as a Windows Service and currently runs integration synchronization only. It polls Jira, Bitbucket, and GitHub every five minutes and writes a completed snapshot to MongoDB, including empty successful results. It does not collect computer inventory or require a computer-master record in this mode.
 - AWS Secrets Manager integration has been verified for providing MySQL and MongoDB connection strings through a single application secret.
 - User creation, login, refresh-token persistence, and logout are implemented and connected to the frontend.
 - Authentication and settings feedback uses a global top-right toaster alert; signup no longer renders a duplicate inline message.
@@ -67,6 +67,14 @@ Configuration files:
 
 Set the database connection string and JWT secrets before running locally.
 
+Start the inventory worker in a second terminal from the repository root:
+
+```powershell
+dotnet run --project .\backend\StackPulse.InventoryService
+```
+
+The worker runs immediately and then every five minutes. On Windows it collects WMI services, registry-installed software, and drives, writes snapshots to MongoDB, and polls Jira and Bitbucket when their worker settings are configured.
+
 ## Frontend (SPA)
 
 ```bash
@@ -86,6 +94,8 @@ The frontend calls the API via code in `frontend/stackpulse-ui/src/services/api.
 During local development, Vite proxies `/api` requests to `http://localhost:5062` by default.
 
 The frontend includes a light StackPulse theme, dashboard navigation, master configuration screens, system inventory display, and a footer in the main application layout.
+
+Open `http://localhost:5173` after starting Vite. The API uses `http://localhost:5062` by default.
 
 ## Storage and secrets
 
@@ -111,13 +121,17 @@ Never place AWS keys, database passwords, JWT production keys, or provider acces
 
 See `deployment/inventory-service-configuration.md` for inventory worker hosting and AWS deployment guidance.
 
+For the current worker integration fetchers, configure `Jira:BaseUrl`, `Jira:Username`, `Jira:ApiToken`, and `Jira:Jql`, plus `Bitbucket:BaseUrl`, `Bitbucket:Username`, `Bitbucket:AppPassword`, and `Bitbucket:Workspace` in the worker's environment or `appsettings.json`. Do not commit real credentials. The Settings page stores integration metadata and secret references, but the worker does not yet resolve those references for Jira/Bitbucket polling.
+
+GitHub pull-request synchronization uses a fine-grained token with read access to pull requests and repository metadata. Configure `GitHub:BaseUrl`, `GitHub:Token`, and a comma-separated `GitHub:Repositories` value such as `owner/repository-one,owner/repository-two`. Keep the token in the server environment or secret store.
+
 ## Development notes
 
 - Controllers and services are under `backend/StackPulse.Api/Controllers` and `backend/StackPulse.Api/Services`.
 - DTOs live in `backend/StackPulse.Api/DTOs`.
 - MySQL schema and seed scripts live under `database/mysql`; the current SQL contract uses lowercase snake_case names.
 - Detailed implementation status and the next Jira/utility-token monitoring phase are documented in `release/implementation-status.md`.
-- Jira synchronization, utility access-token resolution, scheduled monitoring, and provider failure alerting are the next implementation items.
+- GitHub pull-request synchronization is implemented when `GitHub:Token` and `GitHub:Repositories` are configured. The next GitHub items are Actions checks, security findings, change detection, comment posting, and AI review automation. Other next items are Confluence/CI connectors, worker-side integration-secret resolution, notifications, and AI incident correlation.
 
 ## Contributing
 
