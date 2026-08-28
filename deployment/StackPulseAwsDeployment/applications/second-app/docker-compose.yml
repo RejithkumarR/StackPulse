@@ -1,0 +1,6 @@
+services:
+  second-app:
+    image: second-app:latest
+    restart: unless-stopped
+    ports: ["8080:8080"]
+    env_file: [/opt/stackpulse/config/second-app.env]

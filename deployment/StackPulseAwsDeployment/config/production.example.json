@@ -1,0 +1,23 @@
+{
+  "region":"ap-south-1",
+  "vpcId":"vpc-REPLACE",
+  "privateSubnetIds":"subnet-private-a,subnet-private-b",
+  "applicationSecurityGroupId":"sg-REPLACE",
+  "instanceProfileName":"StackPulseApplicationInstanceProfile",
+  "applicationInstanceType":"t3.small",
+  "rootVolumeSizeGiB":"30",
+  "httpsListenerArn":"arn:aws:elasticloadbalancing:ap-south-1:ACCOUNT:listener/app/REPLACE",
+  "artifactBucket":"stackpulse-build-artifacts-REPLACE",
+  "startCron":"30 2 * * 1-6",
+  "stopCron":"30 14 * * 1-6",
+  "applications":[
+   {"name":"stackpulse","domain":"stackpulse.example.com","amiId":"ami-REPLACE","amiName":"stackpulse-production",
+    "sourcePath":"../StackPulse","dockerfile":"Dockerfile","composeFile":"docker-compose.yml","imageName":"stackpulse",
+    "containerPort":8080,"minInstances":0,"desiredInstances":0,"maxInstances":2,"cpuTargetPercent":60.0,
+    "secretPrefix":"/stackpulse/prod/stackpulse/","parameterPrefix":"/stackpulse/prod/stackpulse/"},
+   {"name":"second-app","domain":"second.example.com","amiId":"ami-REPLACE","amiName":"second-app-production",
+    "sourcePath":"../SecondApp","dockerfile":"Dockerfile","composeFile":"docker-compose.yml","imageName":"second-app",
+    "containerPort":8080,"minInstances":0,"desiredInstances":0,"maxInstances":2,"cpuTargetPercent":60.0,
+    "secretPrefix":"/stackpulse/prod/second-app/","parameterPrefix":"/stackpulse/prod/second-app/"}
+  ]
+}

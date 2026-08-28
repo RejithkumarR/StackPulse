@@ -1,0 +1,5 @@
+{
+ "Version":"2012-10-17","Statement":[
+ {"Effect":"Allow","Action":["s3:GetObject","s3:PutObject","s3:ListBucket"],
+  "Resource":["arn:aws:s3:::YOUR-BUILD-BUCKET","arn:aws:s3:::YOUR-BUILD-BUCKET/*"]},
+ {"Effect":"Allow","Action":["ec2:CreateImage","ec2:DescribeImages","ec2:DescribeInstances","ec2:CreateTags"],"Resource":"*"}]}

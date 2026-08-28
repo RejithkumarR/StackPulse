@@ -1,0 +1,7 @@
+{
+ "Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":[
+ "ec2:DescribeImages","autoscaling:DescribeAutoScalingGroups","autoscaling:DescribeLaunchTemplates",
+ "autoscaling:CreateLaunchTemplate","autoscaling:CreateLaunchTemplateVersion","autoscaling:CreateAutoScalingGroup",
+ "autoscaling:UpdateAutoScalingGroup","autoscaling:PutScalingPolicy","autoscaling:PutScheduledUpdateGroupAction",
+ "elasticloadbalancing:DescribeTargetGroups","elasticloadbalancing:CreateTargetGroup","elasticloadbalancing:CreateRule"
+ ],"Resource":"*"}]}

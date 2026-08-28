@@ -1,0 +1,6 @@
+{
+ "Version":"2012-10-17","Statement":[
+ {"Effect":"Allow","Action":["ssm:GetParameter","ssm:GetParameters","ssm:GetParametersByPath"],
+  "Resource":"arn:aws:ssm:REGION:ACCOUNT_ID:parameter/stackpulse/prod/*"},
+ {"Effect":"Allow","Action":["secretsmanager:GetSecretValue"],
+  "Resource":"arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:stackpulse/prod/*"}]}
