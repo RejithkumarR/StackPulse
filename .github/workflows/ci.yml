@@ -6,11 +6,48 @@ on:
       - main
       - master
       - develop
+    paths:
+      # Backend
+      - '**/*.cs'
+      - '**/*.csproj'
+      - '**/*.sln'
+      - 'backend/**'
+
+      # Frontend
+      - 'frontend/stackpulse-ui/**'
+
+      # Python AI service
+      - 'services/ai-service/**'
+
+      # Java AWS deployment
+      - 'deployment/StackPulseAwsDeployment/**'
+
+      # CI itself
+      - '.github/workflows/ci.yml'
+
   pull_request:
     branches:
       - main
       - master
       - develop
+    paths:
+      # Backend
+      - '**/*.cs'
+      - '**/*.csproj'
+      - '**/*.sln'
+      - 'backend/**'
+
+      # Frontend
+      - 'frontend/stackpulse-ui/**'
+
+      # Python AI service
+      - 'services/ai-service/**'
+
+      # Java AWS deployment
+      - 'deployment/StackPulseAwsDeployment/**'
+
+      # CI itself
+      - '.github/workflows/ci.yml'
 
 permissions:
   contents: read
@@ -41,6 +78,7 @@ jobs:
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: frontend/stackpulse-ui
@@ -68,6 +106,7 @@ jobs:
   ai-service:
     name: Python AI Service
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: services/ai-service
@@ -91,3 +130,28 @@ jobs:
 
       - name: Import AI service
         run: python -c "from app.main import app; print(app.title)"
+
+  java-deployment:
+    name: Java AWS Deployment
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: deployment/StackPulseAwsDeployment
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build Java deployment project
+        run: mvn -B clean package
+
+      - name: Run Java tests
+        run: mvn -B test

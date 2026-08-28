@@ -1,0 +1,6 @@
+services:
+  stackpulse:
+    image: stackpulse:latest
+    restart: unless-stopped
+    ports: ["8080:8080"]
+    env_file: [/opt/stackpulse/config/stackpulse.env]

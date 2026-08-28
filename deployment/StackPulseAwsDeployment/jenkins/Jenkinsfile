@@ -1,0 +1,13 @@
+pipeline {
+ agent any
+ parameters {
+  choice(name:'APP',choices:['stackpulse','second-app'],description:'Application')
+  choice(name:'ACTION',choices:['package','deploy'],description:'Action')
+ }
+ stages {
+  stage('Checkout'){steps{checkout scm}}
+  stage('Build Java'){when{expression{params.ACTION=='package'}}steps{sh 'mvn -B clean package'}}
+  stage('Build AMI'){when{expression{params.ACTION=='package'}}steps{sh 'bash scripts/ami-builder.sh'}}
+  stage('Deploy'){steps{sh "java -jar target/stackpulse-aws-deployment-1.0.0.jar deploy ${params.APP} --config config/production.json"}}
+ }
+}
